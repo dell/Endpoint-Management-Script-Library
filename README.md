@@ -1,3 +1,6 @@
+# *Maintenance*
+This page is under maintenance. The repository will be restructured on 12th Feb 2023 with improvement in navigation and grouping the scripts. The repository will also be renamed to "Dell Endpoint Management Script Library". 
+
 # *Intune client script library*
 PowerShell scripting for Dell Client BIOS Direct WMI API with DMTF CIM or WMI.
 Sample scripts are written in PowerShell that illustrates the usage of Dell Client BIOS Direct WMI API with WMI to manage Dell clients. These scripts can be deployed from Intune management console to manage the Dell commercial client systems.
