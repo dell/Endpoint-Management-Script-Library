@@ -1,5 +1,20 @@
-# *Maintenance*
-This page is under maintenance. The repository will be restructured on 12th Feb 2023 with improvement in navigation and grouping the scripts. The repository will also be renamed to "Dell Endpoint Management Script Library". 
+## *Script Migration*
+The scripts are **migrated** as follows:
+
+**Endpoint-Management-Script-Library/Intune Scripts/BIOS Settings/**
+1. Dell_BIOS_Baseline.ps1
+2. Dell_BIOS_Boot_Order.ps1
+3. Dell_BIOS_Password.ps1 
+4. Dell_BIOS_Persistence.ps1 
+5. Dell_BIOS_Setting.ps1
+
+**Endpoint-Management-Script-Library/Intune Scripts/TPM Activation and Security/**
+1. Dell_BIOS_TPM_Post_Reboot.ps1
+2. Dell_BIOS_TPM_Pre_Reboot.ps1
+
+**Endpoint-Management-Script-Library/Intune Scripts/UEFI Variable Settings/**
+1. Dell_GetForcedNetworkFlag.ps1 
+2. Dell_SetForcedNetworkFlag.ps1
 
 # *Intune client script library*
 PowerShell scripting for Dell Client BIOS Direct WMI API with DMTF CIM or WMI.
