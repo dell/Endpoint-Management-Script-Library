@@ -1,0 +1,18 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"BatteryHealth",
+           "Operator":"isEquals",
+           "DataType":"String",
+           "Operand":"OK",
+           "MoreInfoUrl":"https://www.dell.com/support/manuals/en-us/command-monitor/dellcommandmonitor_rg_10.6/dcim_battery?guid=guid-0176acfb-3ff2-4895-9521-33c9bc948f0b&lang=en-us",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"Battery of your device is not healthy",
+                 "Description": "Battery healty check link for more informations or using Dell Support Assist for a Hardware Scan"
+              }
+           ]
+        }
+     ]
+}

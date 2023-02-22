@@ -1,0 +1,33 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"IntrusionSetting",
+           "Operator":"IsEquals",
+           "DataType":"Int64",
+           "Operand":"3",
+           "MoreInfoUrl":"https://www.dell.com/support/",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"Chassis Intrusion detection is not enabled",
+                 "Description": "Please contact Administrator to change BIOS setting on your device"
+              }
+           ]
+        },
+        { 
+           "SettingName":"IntrusionStatus",
+           "Operator":"IsEquals",
+           "DataType":"Int64",
+           "Operand":"3",
+           "MoreInfoUrl":"https://www.dell.com/support/",
+           "RemediationStrings":[ 
+              { 
+                 "Language": "en_US",
+                 "Title": "Chassis Intrusion Alert",
+                 "Description": "Please contact Administrator"
+              }
+           ]
+        }
+              
+     ]
+}

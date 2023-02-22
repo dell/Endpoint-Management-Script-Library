@@ -1,0 +1,32 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"Support",
+           "Operator":"GreaterThan",
+           "DataType":"Int64",
+           "Operand":"0",
+           "MoreInfoUrl":"https://www.dell.com/support/",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"This Device have no Hardware support",
+                 "Description": "Support Contract has ended, please request a new device"
+              }
+           ]
+        },
+        { 
+            "SettingName":"Last30Days",
+            "Operator":"GreaterThan",
+            "DataType":"Int64",
+            "Operand":"0",
+            "MoreInfoUrl":"https://www.dell.com/support/",
+            "RemediationStrings":[ 
+               { 
+                  "Language":"en_US",
+                  "Title":"Hardware support for this device will ending soon",
+                  "Description": "Support Contract will ending, please request a new device"
+               }
+            ]
+         }
+     ]
+}
