@@ -1,0 +1,18 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"HealthStatus",
+           "Operator":"isEquals",
+           "DataType":"String",
+           "Operand":"Healthy",
+		   "MoreInfoUrl":"https://www.dell.com/support/",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"Hard Drive of your device is not healthy",
+                 "Description": "Please contact Administrator"
+              }
+           ]
+        }
+     ]
+}

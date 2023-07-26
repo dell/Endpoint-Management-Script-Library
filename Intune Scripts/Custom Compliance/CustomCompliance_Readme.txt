@@ -14,3 +14,11 @@ This script verifies if the system is compliant or not as per the rules that are
 This Powershell script uses WMI to check the BIOS settings - chassisintrusion and ChassisIntrusionStatus. The script must be uploaded in Intune Compliance or Script and needs an additional JSON file for reporting.
 It verifies if the system is compliant or not as per the rules that are mentioned in the JSON file (Intune_Compliance_Chassis_Intrusion.json). 
 It checks if the BIOS setting Intrusion detection is Silentenabled currently and Intrusion Status is Door Closed.
+
+4. Intune_Compliance_Sensor_WMI_HDD_Health.ps1
+This Powershell script uses WMI to check the Hard Drive health status on the device. The script must be uploaded in Intune Compliance or Script and needs an additional JSON file for reporting.
+It verifies if the system is compliant or not as per the rules that are mentioned in the JSON file (Intune_Compliance_HDD_Health.json). 
+
+5. Intune_Compliance_Sensor_Memory_Health.ps1
+This Powershell script uses Dell Command | Monitor to make WMI request of memory health status on the device. This script must be uploaded in Intune Compliance or Script and needs an additional JSON file for reporting.
+It verifies if the system is compliant or not as per the rules that are mentioned in the JSON file (Intune_Compliance_Memory_Health.json).
