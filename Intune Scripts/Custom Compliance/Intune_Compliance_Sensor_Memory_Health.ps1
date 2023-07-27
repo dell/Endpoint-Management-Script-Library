@@ -71,7 +71,6 @@ else
 Write-Host "There is failure with one of the RAMS"
 
 }
-write-host "MAHESH"
 
 $MemoryHealth = switch($errorcheck)
 {
