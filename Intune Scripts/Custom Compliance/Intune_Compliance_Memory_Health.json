@@ -1,0 +1,18 @@
+{
+    "Rules":[ 
+        { 
+           "SettingName":"HealthStatus",
+           "Operator":"isEquals",
+           "DataType":"String",
+           "Operand":"Healthy",
+		   "MoreInfoUrl":"https://www.dell.com/support/manuals/en-us/command-monitor/dcm_rg_10.9.1/dcim_memory?guid=guid-517eec82-6f54-4317-8826-bfcf77c42f7e&lang=en-us",
+           "RemediationStrings":[ 
+              { 
+                 "Language":"en_US",
+                 "Title":"Memory of your device is not healthy",
+                 "Description": "Please contact Administrator"
+              }
+           ]
+        }
+     ]
+}
