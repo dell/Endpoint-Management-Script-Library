@@ -3,12 +3,11 @@ The Dell_Intune_App_Publish.ps1 script has been created to help IT administrator
 
 # *Prerequisites*
 In order to run the script the following pre-requistes needs to be met:
-    1) Need to install GetMSAL powershell library using below command:
-
+1) Need to install GetMSAL powershell library using below command:
         Command - Install-Module -Name MSAL.PS
         Site Link - https://www.powershellgallery.com/packages/MSAL.PS/4.2.1.3
 
-    2) Enable power shell script execution policy
+2) Enable power shell script execution policy
 
 # *Parameters supported:*
         -help                      : displays this help content
@@ -25,18 +24,18 @@ In order to run the script the following pre-requistes needs to be met:
 
 # *Script Execution:*
 The Script can be run in the below ways:
-    1) The below command display the help content of the script and different parameters that are supported:
-        powershell.exe -file .\Dell_Intune_App_Publish.ps1 -help
-    2) In order to know the different Dell Apps supported and that can be published:
-        powershell.exe -file .\Dell_Intune_App_Publish.ps1 -supportedapps -proxy "http://proxy.local:80"
-    4) To publish a particular dell app by downloading and deploying to Intune Tenant using client ID, Tenant ID, Client Secret:
-        powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -AppName "dcu" -proxy "http://proxy.local:80"
-    5) To publish a particular dell app by downloading and deploying to Intune Tenant using client ID, Tenant ID, Certificate Thumprint:
-        powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -CertificateThumbprint "z98b5b8b8b604b0f8b60123456789012" -AppName "dcu" -proxy "http://proxy.local:80"
-    6) To publish a downloaded Dell App publish to Intune Tenant using client ID, Tenant ID, Client Secret:
-        powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -CabPath "C:\temp\dcu.cab" -proxy "http://proxy.local:80"
-    7) To publish a downloaded Dell App publish to Intune Tenant using client ID, Tenant ID, Certificate Thumprint:
-        powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -CabPath "C:\temp\dcu.cab" -CertificateThumbprint "z98b5b8b8b604b0f8b60123456789012" -proxy "http://proxy.local:80"
+1) The below command display the help content of the script and different parameters that are supported:
+    powershell.exe -file .\Dell_Intune_App_Publish.ps1 -help
+2) In order to know the different Dell Apps supported and that can be published:
+    powershell.exe -file .\Dell_Intune_App_Publish.ps1 -supportedapps -proxy "http://proxy.local:80"
+4) To publish a particular dell app by downloading and deploying to Intune Tenant using client ID, Tenant ID, Client Secret:
+    powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -AppName "dcu" -proxy "http://proxy.local:80"
+5) To publish a particular dell app by downloading and deploying to Intune Tenant using client ID, Tenant ID, Certificate Thumprint:
+    powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -CertificateThumbprint "z98b5b8b8b604b0f8b60123456789012" -AppName "dcu" -proxy "http://proxy.local:80"
+6) To publish a downloaded Dell App publish to Intune Tenant using client ID, Tenant ID, Client Secret:
+    powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -CabPath "C:\temp\dcu.cab" -proxy "http://proxy.local:80"
+7) To publish a downloaded Dell App publish to Intune Tenant using client ID, Tenant ID, Certificate Thumprint:
+    powershell.exe -file "Dell_Intune_App_Publish_V1.0.ps1" -ClientId "12345678-1234-1234-1234-123456789012" -TenantId "d66b5b8b-8b60-4b0f-8b60-123456789012" -ClientSecret "z98b5b8b8b604b0f8b60123456789012" -CabPath "C:\temp\dcu.cab" -CertificateThumbprint "z98b5b8b8b604b0f8b60123456789012" -proxy "http://proxy.local:80"
     
 Note: if the environment from which this script is being run and does not need a proxy to download files from internet then the same parameter can be removed from the command line.
 
