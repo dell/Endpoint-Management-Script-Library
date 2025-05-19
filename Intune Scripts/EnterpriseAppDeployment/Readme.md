@@ -1,6 +1,8 @@
 # *Script Usage*
 The Dell_Intune_App_Publish.ps1 script has been created to help IT administrators to download and publish the Dell Supported application to there respective intune tenants.
 
+# * NOTE: Always use the latest script that is posted under Dell Git hub Repo https://github.com/dell/Endpoint-Management-Script-Library/tree/main/Intune%20Scripts/EnterpriseAppDeployment *
+
 # *Prerequisites*
 In order to run the script the following pre-requistes needs to be met:
 1) Need to install GetMSAL powershell library using below command:
@@ -63,4 +65,7 @@ Note: if the environment from which this script is being run and does not need a
     - 19 : dependency update failure in intune
     - 20 : Certificate Not Found with the given thumbprint
     - 21 : Section Not present in JSON
+    - 22 : Unsupported File Extension, Supported file types are .CAB and .ZIP
+    - 23 : Hash Verification Failure
+    - 24 : Commit Upload status fetching failure
     
