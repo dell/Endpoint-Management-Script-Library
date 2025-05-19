@@ -1,6 +1,6 @@
 <#
 _author_ = Poluka, Muni Sekhar <muni.poluka@dell.com>
-_version_ = 1.0
+_version_ = 1.1
 #>
 
 <#
@@ -51,7 +51,6 @@ limitations under the License.
         5. Get APP file version
         6. Upload and commit intunewin file to Azure Storage Blob
         7. Update the file version in the Intune application
-
 #>
 
 # The below code defines the parameters that accepts the input from user
@@ -68,7 +67,7 @@ param(
     [Parameter(Mandatory = $False, Position = 0, ValueFromPipeline = $false)] [switch] $logpath
 )
 
-$error_code_mapping = @{"Success" = 0; "Invalid_App_Name" = 1; "Invalid_Parameters_passed_to_script" = 2; "File_Download_Failure" = 3; "Content_Extraction_Failure" = 4; "json_file_parsing_failure" = 5; "MSAL_Token_Generation_error" = 6; "Win32_LOB_App_creation_error" = 7; "Win32_file_version_creation_error" = 8; "Win32_Lob_App_Place_holder_ID_creation_error" = 9; "Azure_Storage_URI_creation_error" = 10; "file_chunk_calculating_uploading_error" = 11; "upload_chunks_failure" = 12; "committing_file_upload_error" = 13; "Win32_App_file_version_updation_error" = 14; "Sig_verification_failure" = 15; "Prerequisite_check_failure" = 16; "Admin_Privilege_Required" = 17; "Directory_path_not_Exist" = 18; "dependency_update_failure" = 19; "Certificate_Not_Found" = 20;"SectionName_Not_present" = 21}
+$error_code_mapping = @{"Success" = 0; "Invalid_App_Name" = 1; "Invalid_Parameters_passed_to_script" = 2; "File_Download_Failure" = 3; "Content_Extraction_Failure" = 4; "json_file_parsing_failure" = 5; "MSAL_Token_Generation_error" = 6; "Win32_LOB_App_creation_error" = 7; "Win32_file_version_creation_error" = 8; "Win32_Lob_App_Place_holder_ID_creation_error" = 9; "Azure_Storage_URI_creation_error" = 10; "file_chunk_calculating_uploading_error" = 11; "upload_chunks_failure" = 12; "committing_file_upload_error" = 13; "Win32_App_file_version_updation_error" = 14; "Sig_verification_failure" = 15; "Prerequisite_check_failure" = 16; "Admin_Privilege_Required" = 17; "Directory_path_not_Exist" = 18; "dependency_update_failure" = 19; "Certificate_Not_Found" = 20;"SectionName_Not_present" = 21; "Unsupported_File_Extension" = 22; "Hash_Verification_Failure" = 23; "commit_upload_status_fetching_error" = 24}
 
 $Global:intune_config_file_download_url = "https://dellupdater.dell.com/non_du/ClientService/endpointmgmt/Intune_Config.cab"
 
@@ -220,24 +219,64 @@ function prerequisite_verification {
     }
 }
 
+# The below code is to verify the hash values of the files
+function hash_verification {
+    param (
+        [Parameter(Mandatory = $true)] [string]$FilePath,
+        [Parameter(Mandatory = $false)] [string]$SHA512,
+        [Parameter(Mandatory = $false)] [string]$AppConfigSHA512,
+        [Parameter(Mandatory = $false)] [string]$intunewinSHA512
+    )
+
+    if ($SHA512) {
+        $file_hash = Get-FileHash -Algorithm SHA512 -LiteralPath $FilePath
+        if ($file_hash.Hash -eq $SHA512) {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The hash values of $FilePath match"
+        }
+    }
+    elseif ($AppConfigSHA512) {
+        $file_hash = Get-FileHash -Algorithm SHA512 -LiteralPath $FilePath
+        if ($file_hash.Hash -eq $AppConfigSHA512) {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The hash values of $FilePath match"
+        }
+    }
+    elseif ($intunewinSHA512) {
+        $file_hash = Get-FileHash -Algorithm SHA512 -LiteralPath $FilePath
+        if ($file_hash.Hash -eq $intunewinSHA512) {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The hash values of $FilePath match"
+        }
+    }
+    else {
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The hash values of $FilePath do not match"
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code ", $error_code_mapping.Hash_Verification_Failure
+        write-log
+        Exit $error_code_mapping.Hash_Verification_Failure
+    }
+}
 
 # The below function is to verify the digital signature of the file
 function sig_verification {
     param (
         [Parameter(Mandatory = $true)] [string]$FilePath
     )
+    
+    $file_extension = [IO.Path]::GetExtension($FilePath).ToLower()
+    if ($file_extension -eq ".cab") {
+        $signature = Get-AuthenticodeSignature -FilePath $FilePath
 
-    $signature = Get-AuthenticodeSignature -FilePath $FilePath
-
-    if ($signature.Status -eq "Valid") {
-        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The digital signature of $FilePath is valid."
+        if ($signature.Status -eq "Valid") {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The digital signature of $FilePath is valid."
+        }
+        else {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Digital Signature check Failed for $FilePath"
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code ", $error_code_mapping.Sig_verification_failure
+            Write-Log
+            Exit $error_code_mapping.Sig_verification_failure
+        }
     }
     else {
-        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Digital Signature check Failed for $FilePath"
-        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code ", $error_code_mapping.Sig_verification_failure
-        Write-Log
-        Exit $error_code_mapping.Sig_verification_failure
-
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - File extension is not .cab"
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code "
     }
 }
 
@@ -251,15 +290,36 @@ function input_processing {
     $json_downloadPath = $download_files_response.downloadPath
     $json_filename = $download_files_response.filename
 
-    # The below code is to extract the config json cabinet file
-    $Extract_Cabinet_path = Extract_CabinetFile -downloadPath $json_downloadPath -filename $json_filename
+    # The below code is to call extract function based on the file type that is downloaded.
+    $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Downloaded file full path from main function is : $json_downloadPath"
+    $full_package_path = Join-Path -Path $json_downloadPath -ChildPath $json_filename
+    $file_extension = [System.IO.Path]::GetExtension($full_package_path).ToLower()
+    if ($file_extension -eq ".cab") {
+        
+        $Extract_file_path = Extract_CabinetFile -downloadPath $json_downloadPath -filename $json_filename    
+    }
+    elseif ($file_extension -eq ".zip") {
+        
+        $Extract_file_path = Extract_Archive -downloadPath $json_downloadPath -filename $json_filename
+    }
+    else {
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Unsupported file type $file_extension"
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code ", $error_code_mapping.Unsupported_file_type
+        Write-Log
+        Exit $error_code_mapping.Unsupported_file_type
+    }
 
     # The below code is to read the specific app section from the config json file based on user entred app name
-    $intune_config_json_data = read_json_section -json_file_path $Extract_Cabinet_path -SectionName $AppName
+    $intune_config_json_data = read_json_section -json_file_path $Extract_file_path -SectionName $AppName
 
     # The below is to pasre and read the version and download URL from the config json file
     $intune_config_json_data = $intune_config_json_data | ConvertFrom-Json
     $DependentApp_Version = $null
+    $DependentAppdownloadurl = $null
+    $DependentApp_displayname = $null
+    $dependentAppSHA512 = $null
+    $dependentAppAppConfigJsonSHA512 = $null
+    $dependentAppIntunePackageSHA512 = $null
     foreach ($item1 in $intune_config_json_data) {
         $dependencyAppDisplayname = $null
         $dependencyAppversion = $null
@@ -268,11 +328,23 @@ function input_processing {
             $DependentApp_displayname = $item1.displayname
             $DependentApp_Version = $item1.version
             $DependentAppdownloadurl = $item1.downloadurl
+            $DependentAppCryptography = $item1.cryptography
+            foreach ($cryptokeys in $DependentAppCryptography) {
+                $dependentAppSHA512 = $cryptokeys.SHA512
+                $dependentAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                $dependentAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+            }
         }
         elseif ($item1.version -gt $DependentApp_Version) {
             $DependentApp_displayname = $item1.displayname
             $DependentApp_Version = $item1.version
             $DependentAppdownloadurl = $item1.downloadurl
+            $DependentAppCryptography = $item1.cryptography
+            foreach ($cryptokeys in $DependentAppCryptography) {
+                $dependentAppSHA512 = $cryptokeys.SHA512
+                $dependentAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                $dependentAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+            }
         }
         
         $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Displayname and version from config json file is ", $DependentApp_displayname, $DependentApp_Version
@@ -304,7 +376,10 @@ function input_processing {
         $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - No dependency app found in config json file"
     }
     else {
-        $final_dependency_App_download_url = ""
+        $final_dependency_App_download_url = $null
+        $final_dependencyAppSHA512 = $null
+        $final_dependencyAppAppConfigJsonSHA512 = $null
+        $final_dependencyAppIntunePackageSHA512 = $null
         # The below code is to read the specific app section from the config json file based on user entred app name
         $Dependency_App_intune_config_json_data = read_json_section -json_file_path $Extract_Cabinet_path -SectionName $dependencyAppDisplayname
 
@@ -315,6 +390,12 @@ function input_processing {
                 if ($item2.version -eq $dependencyAppversion) {
                     $final_dependency_App_Version = $item2.version
                     $final_dependency_App_download_url = $item2.downloadurl
+                    $DependencyAppCryptography = $item1.cryptography
+                    foreach ($cryptokeys in $DependencyAppCryptography) {
+                        $final_dependencyAppSHA512 = $cryptokeys.SHA512
+                        $final_dependencyAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                        $final_dependencyAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+                    }
                 }
             }
             elseif ($dependencyAppOperator.ToLower() -eq "greaterthan") {
@@ -322,10 +403,22 @@ function input_processing {
                     if ($null -eq $final_dependency_App_Version) {
                         $final_dependency_App_Version = $item2.version
                         $final_dependency_App_download_url = $item2.downloadurl
+                        $DependencyAppCryptography = $item1.cryptography
+                        foreach ($cryptokeys in $DependencyAppCryptography) {
+                            $final_dependencyAppSHA512 = $cryptokeys.SHA512
+                            $final_dependencyAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                            $final_dependencyAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+                        }
                     }
                     elseif ($item2.version -gt $final_dependency_App_Version) {
                         $final_dependency_App_Version = $item2.version
                         $final_dependency_App_download_url = $item2.downloadurl
+                        $DependencyAppCryptography = $item1.cryptography
+                        foreach ($cryptokeys in $DependencyAppCryptography) {
+                            $final_dependencyAppSHA512 = $cryptokeys.SHA512
+                            $final_dependencyAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                            $final_dependencyAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+                        }
                     }
                 }
             }
@@ -335,19 +428,36 @@ function input_processing {
                     if ($null -eq $final_dependency_App_Version) {
                         $final_dependency_App_Version = $item2.version
                         $final_dependency_App_download_url = $item2.downloadurl
+                        $DependencyAppCryptography = $item1.cryptography
+                        foreach ($cryptokeys in $DependencyAppCryptography) {
+                            $final_dependencyAppSHA512 = $cryptokeys.SHA512
+                            $final_dependencyAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                            $final_dependencyAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+                        }
                     }
                     elseif ($item2.version -ge $final_dependency_App_Version) {
                         $final_dependency_App_Version = $item2.version
                         $final_dependency_App_download_url = $item2.downloadurl
+                        $DependencyAppCryptography = $item1.cryptography
+                        foreach ($cryptokeys in $DependencyAppCryptography) {
+                            $final_dependencyAppSHA512 = $cryptokeys.SHA512
+                            $final_dependencyAppAppConfigJsonSHA512 = $cryptokeys.appConfigJsonSHA512
+                            $final_dependencyAppIntunePackageSHA512 = $cryptokeys.intunePackageSHA512             
+                        }
                     }
                 }
             }
         }
-
     }
     $download_url_responses = @{
         "dependantAppURL"  = $DependentAppdownloadurl;
         "dependencyAppURL" = $final_dependency_App_download_url
+        "dependentAppSHA512"  = $dependentAppSHA512;
+        "dependentAppConfigJsonSHA512" = $dependentAppAppConfigJsonSHA512;
+        "dependentAppIntunePackageSHA512" = $dependentAppIntunePackageSHA512;
+        "dependencyAppSHA512" = $final_dependencyAppSHA512;
+        "dependencyAppAppConfigJsonSHA512" = $final_dependencyAppAppConfigJsonSHA512;
+        "dependencyAppIntunePackageSHA512" = $final_dependencyAppIntunePackageSHA512
     }
     return $download_url_responses
     
@@ -372,13 +482,13 @@ function download_files {
             Invoke-WebRequest -Uri $downloadurl -OutFile $download_full_path -UserAgent $userAgent -Proxy $proxy 
         }
         else {
-            $download_status = Invoke-WebRequest -Uri $downloadurl -OutFile $download_full_path -UserAgent $userAgent -PassThru
-            
+            $download_status = Invoke-WebRequest -Uri $downloadurl -OutFile $download_full_path -UserAgent $userAgent -PassThru 
         }
         if ($?) {
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Downloaded the file successfully in location ", $downloadPath
             if ([System.IO.File]::Exists($download_full_path)) {
                 sig_verification -FilePath $download_full_path
+               
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - File exists in the location ", $download_full_path
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Download path without filename, inside download files function ", $downloadPath1
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Filename inside download files function ", $filename
@@ -423,10 +533,16 @@ function Extract_Archive {
         $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Extracted the contents successfully in location $downloadPath"
         $intunewinfilepath = Join-Path -Path $downloadPath -ChildPath "IntunePackage.intunewin"
         $CreateAPPConfigPath = Join-Path -Path $downloadPath -ChildPath "AppConfig.json"
+        $intune_config_file = Join-Path -Path $downloadPath -ChildPath "Intune_Config.json"
         if ((Test-Path $intunewinfilepath) -and (Test-Path $CreateAPPConfigPath)) {
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Extracted the contents successfully in location $downloadPath"
             return $intunewinfilepath, $CreateAPPConfigPath
         }
+        elseif (Test-Path $intune_config_file) {
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Extracted the cabinet file contents successfully in location $downloadPath"
+            return $intune_config_file
+            
+        }        
         else {
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Extracted the contents successfully in location $downloadPath"
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with return code ", $error_code_mapping.Content_Extraction_Failure
@@ -832,9 +948,9 @@ function commit_upload_status {
     }
     else {
         $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Failed to commit the upload"
-        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status_fetching_error
         Write-Log
-        Exit $error_code_mapping.commit_upload_status
+        Exit $error_code_mapping.commit_upload_status_fetching_error
     }
     # The below code is to check the commit status
     $commit_status_upload_state = ""
@@ -851,18 +967,18 @@ function commit_upload_status {
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - $i seconds elapsed"
             $i += 1
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The value of i is $i"
-            if ($i -eq 5) {
+            if ($i -eq 30) {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The upload is not committed successfully"
-                $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status
+                $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status_fetching_error
                 Write-Log
-                Exit $error_code_mapping.commit_upload_status
+                Exit $error_code_mapping.commit_upload_status_fetching_error
             }
         }
         else {
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Failed to get the commit status"
-            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.commit_upload_status_fetching_error
             Write-Log
-            Exit $error_code_mapping.commit_upload_status
+            Exit $error_code_mapping.commit_upload_status_fetching_error
         }
     }
     return $commit_status_upload_state
@@ -885,7 +1001,7 @@ function update_file_version {
     $win32LobUrl = "https://graph.microsoft.com/beta/deviceAppManagement/mobileApps"
     $Win32AppUrl = "{0}/{1}" -f $win32LobUrl, $win32LobAppId
     $j = 0
-    while ($j -lt 5) {
+    while ($j -lt 30) {
         $update_file_version_response = Invoke-WebRequest -uri $Win32AppUrl -Method "PATCH" -Body $Win32AppCommitBody -Headers $authHeader -ContentType 'application/json'
         
         if ($update_file_version_response.StatusCode -eq 204) {
@@ -903,7 +1019,7 @@ function update_file_version {
                 return $update_file_version_published_state_response.publishingState
             }
             
-            if ($j -eq 5) {
+            if ($j -eq 30) {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - The upload is not committed successfully"
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Execution Terminated with error code ", $error_code_mapping.Win32_App_file_version_updation_error
                 Write-Log
@@ -1176,7 +1292,10 @@ function Show-SupportedApps {
 
 function File_download_Extract {
     param (
-        [Parameter(Mandatory = $true)] [string] $Appdownloadurl
+        [Parameter(Mandatory = $true)] [string] $Appdownloadurl,
+        [Parameter(Mandatory = $true)] [string] $SHA512,
+        [Parameter(Mandatory = $true)] [string] $AppconfigSHA512,
+        [Parameter(Mandatory = $true)] [string] $intunewinSHA512
     )
 
     # The below function call is to download the Application from the URL
@@ -1189,12 +1308,33 @@ function File_download_Extract {
     
     $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Downloaded the file successfully and the filename from main fucntion is : $filename1"
 
-    # The below function call is to extract the contents on the end-user system in downloads_temp folder under CWD
-    $intunewinfilepath, $CreateAPPConfigfilePath = Extract_CabinetFile -downloadPath $downloadPath1 -filename $filename1
+    $App_File_path = Join-Path -Path $downloadPath1 -ChildPath $filename1
+    
+    hash_verification -FilePath $App_File_path -SHA512 $SHA512
 
+    $AppFileExtension = [System.IO.Path]::GetExtension($App_File_path).ToLower()
+    if ($AppFileExtension -eq ".cab") {
+        # The below function call is to extract the CAB contents on the end-user system in downloads_temp folder under CWD
+        $intunewinfilepath, $CreateAPPConfigfilePath = Extract_CabinetFile -downloadPath $downloadPath1 -filename $filename1
+    }
+    elseif ($AppFileExtension -eq ".zip") {
+        # The below function call is to extract the ZIP contents on the end-user system in downloads_temp folder under CWD
+        $intunewinfilepath, $CreateAPPConfigfilePath = Extract_Archive -downloadPath $downloadPath1 -filename $filename1
+    }
+    else {
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Unsupported file extension : $AppFileExtension"
+        $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script Exeution terminated with return code ", $error_code_mapping.Unsupported_file_extension
+        Write-Log
+        Exit $error_code_mapping.Unsupported_file_extension
+    }
+    
     $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - intunewin file path is : $intunewinfilepath"
 
     $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - CreateAPPConfig file path is : $CreateAPPConfigfilePath"
+
+    hash_verification -FilePath $CreateAPPConfigfilePath -AppConfigSHA512 $AppconfigSHA512
+
+    hash_verification -FilePath $intunewinfilepath -intunewinSHA512 $intunewinSHA512
 
     $extracted_file_paths = @{
         intunewinfilepath       = $intunewinfilepath
@@ -1254,7 +1394,7 @@ function main {
 
             if ($null -ne $dependencyAppDownloadURL) {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependency App Download URL is available for the user selected application"
-                $dependencyAppExtractPaths = File_download_Extract -Appdownloadurl $dependencyAppDownloadURL
+                $dependencyAppExtractPaths = File_download_Extract -Appdownloadurl $dependencyAppDownloadURL -SHA512 $Appdownloadurl.dependencyAppSHA512 -AppconfigSHA512 $Appdownloadurl.dependencyAppAppConfigJsonSHA512 -intunewinSHA512 $Appdownloadurl.dependencyAppIntunePackageSHA512
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependency App Intune win file path is : $dependencyAppExtractPaths.intunewinfilepath"
                 
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependency App CreateAPPConfig file path is : $dependencyAppExtractPaths.CreateAPPConfigfilePath"
@@ -1279,13 +1419,13 @@ function main {
                 }
                 
             }
-            elseif ($dependentAppDownloadURL -eq "") {
+            else {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - No dependency app found for the user selected application"
             }
 
             if ($dependentAppDownloadURL -ne "") {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependent App Download URL is available for the user selected application"
-                $dependentAppExtractPaths = File_download_Extract -Appdownloadurl $dependentAppDownloadURL
+                $dependentAppExtractPaths = File_download_Extract -Appdownloadurl $dependentAppDownloadURL -SHA512 $Appdownloadurl.dependentAppSHA512 -AppconfigSHA512 $Appdownloadurl.dependentAppConfigJsonSHA512 -intunewinSHA512 $Appdownloadurl.dependentAppIntunePackageSHA512
                 
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependent App Intune win file path is : $dependentAppExtractPaths.intunewinfilepath"
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependent App CreateAPPConfig file path is : $dependentAppExtractPaths.CreateAPPConfigfilePath"
@@ -1298,9 +1438,7 @@ function main {
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Dependent App win32lobappID is : $dependentwin32lobappID"
 
             }
-            elseif ($dependencyAppDownloadURL -eq "") {
-                $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - No dependency app found for the user selected application"
-            }
+            
             # The below code is to update the app dependency in Intune.
             if ($dependencywin32lobappID -ne "") {
                 Win32_App_Dependency_Update -tokenauthorizationheader $tokenauthorizationheader -dependencyAppID $dependencywin32lobappID -dependentAppID $dependentwin32lobappID
@@ -1338,8 +1476,22 @@ function main {
             
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Downloaded the file successfully and the filename from main fucntion is : $filename1"
 
-                # The below fucntion call is to extract the contents on the end-user system in downloads_temp folder under CWD
-                $intunewinfilepath, $CreateAPPConfigfilePath = Extract_CabinetFile -downloadPath $downloadPath1 -filename $filename1
+                $App_File_path = Join-Path -Path $downloadPath1 -ChildPath $filename1
+                $AppFileExtension = [System.IO.Path]::GetExtension($App_File_path).ToLower()
+                if ($AppFileExtension -eq ".cab") {
+                    # The below function call is to extract the CAB contents on the end-user system in downloads_temp folder under CWD
+                    $intunewinfilepath, $CreateAPPConfigfilePath = Extract_CabinetFile -downloadPath $downloadPath1 -filename $filename1
+                }
+                elseif ($AppFileExtension -eq ".zip") {
+                    # The below function call is to extract the ZIP contents on the end-user system in downloads_temp folder under CWD
+                    $intunewinfilepath, $CreateAPPConfigfilePath = Extract_Archive -downloadPath $downloadPath1 -filename $filename1
+                }
+                else {
+                    $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - App file extension is not valid"
+                    $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Script execution terminated with error code ", $error_code_mapping.Unsupported_File_Extension
+                    Write-Log
+                    Exit $error_code_mapping.Unsupported_File_Extension
+                }
             
                 $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - intunewin file path is : $intunewinfilepath"
             
@@ -1358,7 +1510,9 @@ function main {
             
             $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - --------------------------------"
             
-            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Intune token authorization header from main function is : $tokenauthorizationheader"
+            $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Intune token authorization header generated successfully"
+            
+            #$Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Intune token authorization header from main function is : $tokenauthorizationheader"
 
             # The below function call is to publish the app to Intune
             $win32LobAppId = Intune_App_Publish -tokenauthorizationheader $tokenauthorizationheader -CreateAPPConfigfilePath $CreateAPPConfigfilePath -intunewinfilepath $intunewinfilepath
@@ -1405,11 +1559,13 @@ main
 
 
 
+
+
 # SIG # Begin signature block
 # MIIq1wYJKoZIhvcNAQcCoIIqyDCCKsQCAQExDzANBglghkgBZQMEAgEFADB5Bgor
 # BgEEAYI3AgEEoGswaTA0BgorBgEEAYI3AgEeMCYCAwEAAAQQH8w7YFlLCE63JNLG
-# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCBtBj4KDFxG9kHz
-# MmBYdK+vWG/BtEdAeE+yLU8OsPdjh6CCEnkwggXfMIIEx6ADAgECAhBOQOQ3VO3m
+# KX7zUQIBAAIBAAIBAAIBAAIBADAxMA0GCWCGSAFlAwQCAQUABCDJigHjgOMEmBd+
+# yBovdExHU5DxZWeaJdn7CuaUTonT86CCEnkwggXfMIIEx6ADAgECAhBOQOQ3VO3m
 # jAAAAABR05R/MA0GCSqGSIb3DQEBCwUAMIG+MQswCQYDVQQGEwJVUzEWMBQGA1UE
 # ChMNRW50cnVzdCwgSW5jLjEoMCYGA1UECxMfU2VlIHd3dy5lbnRydXN0Lm5ldC9s
 # ZWdhbC10ZXJtczE5MDcGA1UECxMwKGMpIDIwMDkgRW50cnVzdCwgSW5jLiAtIGZv
@@ -1512,20 +1668,20 @@ main
 # dCwgSW5jLjEoMCYGA1UEAxMfRW50cnVzdCBDb2RlIFNpZ25pbmcgQ0EgLSBPVkNT
 # MgIQL09K+R/wy2FbIlVDX6BBmTANBglghkgBZQMEAgEFAKB8MBAGCisGAQQBgjcC
 # AQwxAjAAMBkGCSqGSIb3DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsx
-# DjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCBkuZcdPe/ywm930aimkw+9
-# ghMKBlOxkkouEj4+26xGFzANBgkqhkiG9w0BAQEFAASCAYC4o9RIjIGDtcl+byrM
-# UvRnVQcUzROMnO+I8lPLP4PaH36QVbP6ckh8XcTPyPxEXWcUl0xRZSzVDNjTR21M
-# WWnFGIESVlvPkacFdYC+6NarILcW7/6mdi+unCkP4lPEdt5NjleirgXG//ev/Ldk
-# FyXoxdujQKCaGmngHnRj/yKFCOwOX/TwxeYwdGpq//R0Z3FPKPvlPvpx0RlyLw1R
-# uo+4AgYJMf24bZ2OsNiM51mPcTZ1zw+T6yDmZb9149t39pJGqcje7C/j8S5tu9Wo
-# k0EGVPjPdavvkEjEuuyIsshWBIjO2Gc7rKvCypxzyGkQAv1o7d4zHq1ICBXuNcp1
-# fucFnSAkso7TAXKk09YubIusZDh3bnTwtsInsGQxK7uce5VB8PVBVDiTQ7N7928p
-# NkxaE92+qya/PwFVnUqukgQRqu0RDh+CF5ma9KeWgRSEKN+6Q67C3qq8/+NIv6TW
-# DXps9tjApGVCzJeexu2qFgJmjNPjbyFlPGqGLR5/WF1i/kKhghUkMIIVIAYKKwYB
+# DjAMBgorBgEEAYI3AgEVMC8GCSqGSIb3DQEJBDEiBCCyRFxr6gsr5v9NKrRDaiPA
+# hv/QTuJZG+tY91GPxWDSMTANBgkqhkiG9w0BAQEFAASCAYAA+ziHnCknYg2NpQPB
+# 5umNfgzdLmrEuwZAUxUPcwMC6xfPbzNhmeOeArz3OtPWEagX40zXrGHH8VI1Z0XA
+# duYnLYqXP9ei4+31UWrrc3XCulZuVJfBLw6czqxgMEAxzVQI7hnvn0/ev5SnrzRW
+# +G6Wc024JYakbpOLJSFhcOW5YmlRV9eX4TOo2aGpUDSe1vQhCSEI7d5f6USWuwQh
+# 8cj6b54y5hrz7eFFrjh2zTCG6gYrPNy/RL+5HxVq9CaiQmpr6ZFEvrJAE21OJNff
+# M+i+SfP3l3nzUvqg7CefI2iWUD21asP8j2OC1V58pVwkvfoHKeMTjNzWSIf1P/o+
+# nQVupAKIUEvOaKft1ZyyB93LjPPVi9EzMLPLfQ6PXKk6Akd1FJ2BgpMJCri4gzWM
+# vS38a+0D21Vi7cvlxFSFuHzi44oOfvDZLIk2ilh6toUhwdy/pagJGbuTSnhYLEpA
+# /zCB8BULyxfuZVE68HfTOtqhhUNOsrMN4XNGI4cE2hVS/VShghUkMIIVIAYKKwYB
 # BAGCNwMDATGCFRAwghUMBgkqhkiG9w0BBwKgghT9MIIU+QIBAzENMAsGCWCGSAFl
 # AwQCATCB0QYLKoZIhvcNAQkQAQSggcEEgb4wgbsCAQEGCmCGSAGG+mwKAwUwMTAN
-# BglghkgBZQMEAgEFAAQgBtUwPf64a/Xkm5XzMj1SP8yCveY7wVVLLWEK94B+YjIC
-# CQCgi4wmb0yHexgPMjAyNTAzMjgwNTU0MzBaMAMCAQGgVqRUMFIxCzAJBgNVBAYT
+# BglghkgBZQMEAgEFAAQgiYK9ys2JD8M8wLvIhBB/4JT8Zv1wq8FUA4fqWl5iPccC
+# CQCNbmmKRdtc2hgPMjAyNTA1MTYxNjEzMDNaMAMCAQGgVqRUMFIxCzAJBgNVBAYT
 # AlVTMRYwFAYDVQQKEw1FbnRydXN0LCBJbmMuMSswKQYDVQQDEyJFbnRydXN0IFRp
 # bWVzdGFtcCBBdXRob3JpdHkgLSBUU0ExoIIPbTCCBCowggMSoAMCAQICBDhj3vgw
 # DQYJKoZIhvcNAQEFBQAwgbQxFDASBgNVBAoTC0VudHJ1c3QubmV0MUAwPgYDVQQL
@@ -1615,24 +1771,24 @@ main
 # BAsTMChjKSAyMDE1IEVudHJ1c3QsIEluYy4gLSBmb3IgYXV0aG9yaXplZCB1c2Ug
 # b25seTEmMCQGA1UEAxMdRW50cnVzdCBUaW1lc3RhbXBpbmcgQ0EgLSBUUzECEQCY
 # QHxeFs+HwenB//m0CoiNMAsGCWCGSAFlAwQCAaCCAagwGgYJKoZIhvcNAQkDMQ0G
-# CyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNTAzMjgwNTU0MzBaMCsGCSqG
+# CyqGSIb3DQEJEAEEMBwGCSqGSIb3DQEJBTEPFw0yNTA1MTYxNjEzMDNaMCsGCSqG
 # SIb3DQEJNDEeMBwwCwYJYIZIAWUDBAIBoQ0GCSqGSIb3DQEBCwUAMC8GCSqGSIb3
-# DQEJBDEiBCC9Bx6EXUUBdnakCG/HfRy/UdTIft+1Wj0mhmr0Y1mSgTCCAQwGCyqG
+# DQEJBDEiBCAuIXersVCVNMxfJdoILsVG5fVLtj5EY9o3RCVgH9YMbTCCAQwGCyqG
 # SIb3DQEJEAIvMYH8MIH5MIH2MIHzBCCjihinyaLXcfcfvJBKguPxY5rIFAxOE1W1
 # +8JxmUz+ujCBzjCBuKSBtTCBsjELMAkGA1UEBhMCVVMxFjAUBgNVBAoTDUVudHJ1
 # c3QsIEluYy4xKDAmBgNVBAsTH1NlZSB3d3cuZW50cnVzdC5uZXQvbGVnYWwtdGVy
 # bXMxOTA3BgNVBAsTMChjKSAyMDE1IEVudHJ1c3QsIEluYy4gLSBmb3IgYXV0aG9y
 # aXplZCB1c2Ugb25seTEmMCQGA1UEAxMdRW50cnVzdCBUaW1lc3RhbXBpbmcgQ0Eg
-# LSBUUzECEQCYQHxeFs+HwenB//m0CoiNMA0GCSqGSIb3DQEBCwUABIICAOTfJ/h1
-# 7cOxwAe5CU1ooUcEWO8Eo4Q+x+KHPGMI1nd4OAqf5AI8qo9FnPYGunJ63a8wNoHw
-# Ke/Kth0692OFuWoXI6WpTM7r3hot8DQJYptVAQDsUDGD6sf8S+OyiJuAVVCPTsBn
-# rs2alI1aNvqwwuAu6gjN2znf8nw2zALynkQ607dc8vGrCCp2UaNqjGISPwhzymeb
-# AYx10yBefStTh5Dwk4bkazj0ez8NXw0K6TSXRSxIStRrbDSMiAoB9Fcg7yruXDAc
-# 7T07OsLJTMEcI/CzJNzAnSvV1Ly6maVuZs6hAlL0gBqy8mbRSyaG8oUeg23o1+kI
-# 9dly10C4zsUC7zEDQLuHXvrSMuhG0/7dzbXiZYnjoE8fOAV2kBOh/mrjFwBMnkgG
-# T+P3oXcIAeyDaApMFJjDnqb6ouUtOV4QPadEMdB6TCUnjIAF8pv9ZLMjPf7+R3Dw
-# Q2AFCvvDnf/f9Imku6Elp9YfN+bUVs0R342coKQ4+ZikLkgHUNALDX0dl8DVIWMW
-# ULR2R15NWiTn1i3TunVQommyodzmlo71PgLBkTMrkMaGl6u85gZXxZcLEVMn9Kfr
-# Gr68KEyUIXucbvKcKsr2wUPDK9nO1gObBD/8mxKA2JxQSFHKUsm51AoccgmjCCIi
-# ntTXTyZRyg5cqOZK3BBYC9gOJQgwgHEVu1V/
+# LSBUUzECEQCYQHxeFs+HwenB//m0CoiNMA0GCSqGSIb3DQEBCwUABIICAErWsfBU
+# wFlUohhSXqbXYlViwyy6udNoRt8viABCCFUAr5Nk7m9oK+D2O6AJA7ovzWzQ+IwM
+# BKGOl++pjIYxdWtX/5cMkrGppAUw7t6EZDFrnTXNk01zzHnVDgkNJ3MSuNJtIVX2
+# NbTe+eUpzHs7w7qkE5iaO23WcQN6a32M7Vi+mBP24TBuTSpONHhG0Z5Q4IOWhdTp
+# BiMf5hOao7EsiO2MeL4iPYDOqJ3WvE7v4Gc0/MqXKJ+1fvz0RrUOHfxHd4+aJAN4
+# kGFbH5RUpItjENO7ZPFItkZDbqyx1lBrhiQiXZ91lqvx/LtYX9TUiFsZTLrJ9RaN
+# 8A5W+f2JIYSlehU/D9F5RfiTgdhO9deaP1CgprvYCasEwiJfg4kfjsyjPofSnzjp
+# 2u75/2mTC9jnXDs2uSdY5qFN/00dnug4ySVSVvty0CZRukNmz10r+LTjuY50lj3y
+# rm2BGqJ+stglBYL+qDv7kHWuJO4JNxS5x08h59PADcySQ3oTLDcuzH3o3MrnCTBU
+# oGOqtyr8lAQo4CSJiDN4r35zsywRtAjWn60DTeH0Wx6zcTyqQA79UdkBA4a7xDcI
+# u+OMRSqHew+AN4UPisUGelUmBJY8FsJ2NdkyqB9wvoKM6jUF0icDq8shFt4CIxuT
+# xYJh5zMhVCDtn4m8bp8RcJos6nXQRFY0R6ns
 # SIG # End signature block
