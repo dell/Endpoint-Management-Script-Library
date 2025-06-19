@@ -1244,10 +1244,77 @@ function Show-Help {
 "@ | Write-Host
 }
 
+
+function Draw-AsciiTable {
+    param (
+        [array]$Data
+    )
+ 
+    $Columns = @("Supported Application Name", "Version", "AppName")
+    $colWidths = @{
+        "Supported Application Name" = [Math]::Max(30, ($Data | ForEach-Object { $_.DisplayName.Length } | Measure-Object -Maximum).Maximum)
+        "Version" = [Math]::Max(10, ($Data | ForEach-Object { $_.Version.Length } | Measure-Object -Maximum).Maximum)
+        "AppName" = [Math]::Max(15, ($Data | ForEach-Object { $_.AppName.Length } | Measure-Object -Maximum).Maximum)
+    }
+ 
+    function Build-Line {
+        $line = "+"
+        foreach ($col in $Columns) {
+            $line += ("-" * ($colWidths[$col] + 2)) + "+"
+        }
+        return $line
+    }
+ 
+    function Print-Line {
+        Write-Host (Build-Line) -ForegroundColor Green
+    }
+ 
+    function Print-Header {
+        $line = ""
+        foreach ($col in $Columns) {
+            $line += "| " + $col.PadRight($colWidths[$col]) + " "
+        }
+        $line += "|"
+ 
+        $parts = $line -split '(\|)'
+        foreach ($part in $parts) {
+            if ($part -eq "|") {
+                Write-Host -NoNewline $part -ForegroundColor Green
+            } else {
+                Write-Host -NoNewline $part -ForegroundColor Yellow
+            }
+        }
+        Write-Host
+    }
+ 
+    function Print-Rows {
+        foreach ($row in $Data) {
+            $line = ""
+            $line += "| " + $row.DisplayName.PadRight($colWidths["Supported Application Name"]) + " "
+            $line += "| " + $row.Version.PadRight($colWidths["Version"]) + " "
+            $line += "| " + $row.AppName.PadRight($colWidths["AppName"]) + " |"
+ 
+            $parts = $line -split '(\|)'
+            foreach ($part in $parts) {
+                if ($part -eq "|") {
+                    Write-Host -NoNewline $part -ForegroundColor Green
+                } else {
+                    Write-Host -NoNewline $part -ForegroundColor White
+                }
+            }
+            Write-Host
+            Print-Line
+        }
+    }
+ 
+    Print-Line
+    Print-Header
+    Print-Line
+    Print-Rows
+}
 function Show-SupportedApps {
     @"
-    Supported applications and its AppName that needs to be passed to scipt are as below:
-    Supported Application Name | Version   | AppName     
+Supported applications and its AppName that needs to be passed to script are as below:  
 "@ | Write-Host
     # The below code is to download the config json cabinet file
     if ($proxy) {
@@ -1256,16 +1323,16 @@ function Show-SupportedApps {
     else {
         $download_files_response = download_files -downloadurl $Global:intune_config_file_download_url -downloadPath $Global:downloads_dir
     }
-    
+   
     $json_downloadPath = $download_files_response.downloadPath
     $json_filename = $download_files_response.filename
-    
+   
     # The below code is to extract the config json cabinet file
     $Intune_Config_File_Path = Extract_CabinetFile -downloadPath $json_downloadPath -filename $json_filename
-    
+   
     # The below code is to read the JSON data in a loop to display the supported Application Name, Version and App Name
     $json_data = Get-Content -Path $Intune_Config_File_Path | ConvertFrom-Json
-    
+    $displayData = @()
     if ($?) {
         # Loop through the parsed data and print displayname and version
         foreach ($key in $json_data.PSObject.Properties.Name) {
@@ -1274,12 +1341,17 @@ function Show-SupportedApps {
                 foreach ($appdetails in $app) {
                     $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Display Name that is being read is : $($appdetails.displayname)"
                     $Global:logMessages += "`n$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Version that is being read is : $($appdetails.version)"
-
-                    $tes = "{0} | {1} | {2}" -f $appdetails.displayname, $appdetails.version, $key
-                    Write-Output $tes
+                   
+                    # Collect the data
+                    $displayData += [PSCustomObject]@{
+                        DisplayName = $appdetails.displayname
+                        Version     = $appdetails.version
+                        AppName     = $key
+                    }
                 }
             }
         }
+    Draw-AsciiTable -Data $displayData
     Write-Log
     }
     else {
@@ -1289,6 +1361,7 @@ function Show-SupportedApps {
         Exit $error_code_mapping.json_file_parsing_failure
     }
 }
+
 
 function File_download_Extract {
     param (
